@@ -22,6 +22,7 @@ import {
   TomorrowMealForecast,
   TomorrowForecastSummary,
   GuestMealReservation,
+  AdminAuthSession,
 } from '../types';
 
 export const MEAL_PRICING_TABLE: Record<MealCategory, MealPricing> = {
@@ -62,6 +63,7 @@ const STORAGE_KEYS = {
   CURRENT_ROLE: 'mess_tracker_current_role_v3',
   SIMULATED_TIME: 'mess_tracker_simulated_time_v3',
   GUEST_RESERVATIONS: 'mess_tracker_guest_reservations_v3',
+  ADMIN_AUTH: 'mess_tracker_admin_auth_v3',
 };
 
 function getDefaultSimulatedDate(): string {
@@ -332,6 +334,74 @@ export const dbService = {
 
   setCurrentRole(role: 'student' | 'admin') {
     localStorage.setItem(STORAGE_KEYS.CURRENT_ROLE, role);
+  },
+
+  // Admin Authentication (Default: admin / admin@123)
+  isAdminAuthenticated(): boolean {
+    try {
+      const data = localStorage.getItem(STORAGE_KEYS.ADMIN_AUTH);
+      if (!data) return false;
+      const parsed = JSON.parse(data);
+      return Boolean(parsed && parsed.isLoggedIn);
+    } catch {
+      return false;
+    }
+  },
+
+  getAdminSession(): AdminAuthSession | null {
+    try {
+      const data = localStorage.getItem(STORAGE_KEYS.ADMIN_AUTH);
+      if (!data) return null;
+      const parsed = JSON.parse(data);
+      if (parsed && parsed.isLoggedIn) return parsed;
+      return null;
+    } catch {
+      return null;
+    }
+  },
+
+  loginAdmin(
+    username: string,
+    pass: string
+  ): { success: true; admin: AdminAuthSession } | { success: false; error: string } {
+    const cleanUser = username.trim().toLowerCase();
+    const validUsers = ['admin', 'admin@mess.edu', 'admin@campus.edu'];
+    const validPass = 'admin@123';
+
+    if (!cleanUser) {
+      return { success: false, error: 'Admin username is required. Default is "admin".' };
+    }
+
+    if (!validUsers.includes(cleanUser)) {
+      return {
+        success: false,
+        error: 'Invalid admin username. Default username is "admin".',
+      };
+    }
+
+    if (pass !== validPass) {
+      return {
+        success: false,
+        error: 'Incorrect admin password. Default password is "admin@123".',
+      };
+    }
+
+    const session: AdminAuthSession = {
+      isLoggedIn: true,
+      username: 'admin',
+      name: 'Mess Administrator',
+      email: 'admin@mess.edu',
+      role: 'admin',
+      loginTime: new Date().toISOString(),
+    };
+
+    localStorage.setItem(STORAGE_KEYS.ADMIN_AUTH, JSON.stringify(session));
+    this.setCurrentRole('admin');
+    return { success: true, admin: session };
+  },
+
+  logoutAdmin(): void {
+    localStorage.removeItem(STORAGE_KEYS.ADMIN_AUTH);
   },
 
   // Simulated Clock Operations
@@ -1308,5 +1378,6 @@ export const dbService = {
     localStorage.removeItem(STORAGE_KEYS.CURRENT_ROLE);
     localStorage.removeItem(STORAGE_KEYS.SIMULATED_TIME);
     localStorage.removeItem(STORAGE_KEYS.GUEST_RESERVATIONS);
+    localStorage.removeItem(STORAGE_KEYS.ADMIN_AUTH);
   },
 };

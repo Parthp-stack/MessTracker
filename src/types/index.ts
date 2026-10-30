@@ -159,3 +159,12 @@ export interface GuestMealReservation {
   hostName: string;
   notes?: string;
 }
+
+export interface AdminAuthSession {
+  isLoggedIn: boolean;
+  username: string;
+  name: string;
+  email: string;
+  role: 'admin';
+  loginTime: string;
+}
