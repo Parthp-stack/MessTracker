@@ -23,11 +23,14 @@ import { TokenStoreModal } from './components/TokenStoreModal';
 import { AuthModal } from './components/AuthModal';
 import { PassModal } from './components/PassModal';
 import { AdminForecastDashboard } from './components/AdminForecastDashboard';
+import { AdminLogin } from './components/AdminLogin';
 import { CompleteTestSuite } from './components/CompleteTestSuite';
 import { ShieldCheck, CalendarX, Sparkles, Building2, User } from 'lucide-react';
+import { AdminAuthSession } from './types';
 
 export default function App() {
   const [role, setRole] = useState<UserRole>(dbService.getCurrentRole());
+  const [isAdminAuthenticated, setIsAdminAuthenticated] = useState<boolean>(dbService.isAdminAuthenticated());
   const [students, setStudents] = useState<Student[]>([]);
   const [currentStudent, setCurrentStudent] = useState<Student | null>(null);
   const [meals, setMeals] = useState<MealTransaction[]>([]);
@@ -42,7 +45,7 @@ export default function App() {
 
   // Modals
   const [authModalOpen, setAuthModalOpen] = useState(false);
-  const [authMode, setAuthMode] = useState<'login' | 'register' | 'forgot'>('login');
+  const [authMode, setAuthMode] = useState<'login' | 'register' | 'forgot' | 'admin'>('login');
   const [storeModalOpen, setStoreModalOpen] = useState(false);
   const [skipModalOpen, setSkipModalOpen] = useState(false);
   const [selectedUpcomingMealForSkip, setSelectedUpcomingMealForSkip] = useState<UpcomingMeal | undefined>(undefined);
@@ -67,6 +70,7 @@ export default function App() {
     const currIso = dbService.getSimulatedIsoString();
     const currRole = dbService.getCurrentRole();
     const forecast = dbService.getTomorrowForecast();
+    const adminAuthed = dbService.isAdminAuthenticated();
 
     setStudents(loadedStudents);
     setMeals(loadedMeals);
@@ -75,6 +79,7 @@ export default function App() {
     setSimulatedTimeIso(currIso);
     setRole(currRole);
     setTomorrowForecast(forecast);
+    setIsAdminAuthenticated(adminAuthed);
 
     if (active) {
       setUpcomingMeals(dbService.getUpcomingMeals(active.id));
@@ -91,11 +96,31 @@ export default function App() {
     setRole(newRole);
     if (newRole === 'admin') {
       setActiveTab('admin');
-      showToast('Switched to Admin Role: Kitchen Management & Tomorrow Forecast active.', 'info');
+      if (dbService.isAdminAuthenticated()) {
+        showToast('Switched to Admin Role: Kitchen Management & Tomorrow Forecast active.', 'info');
+      } else {
+        showToast('Mess Supervisor login required to access Admin controls.', 'info');
+      }
     } else {
       setActiveTab('terminal');
       showToast('Switched to Student Role: Dining Terminal & Token Wallet active.', 'info');
     }
+    refreshState();
+  };
+
+  // Handler for Admin Auth
+  const handleAdminLoginSuccess = (admin: AdminAuthSession) => {
+    setIsAdminAuthenticated(true);
+    setRole('admin');
+    setActiveTab('admin');
+    showToast(`Welcome back, ${admin.name}! Mess Admin Portal is now unlocked.`, 'success');
+    refreshState();
+  };
+
+  const handleAdminLogout = () => {
+    dbService.logoutAdmin();
+    setIsAdminAuthenticated(false);
+    showToast('Signed out of Mess Admin Portal.', 'info');
     refreshState();
   };
 
@@ -429,6 +454,8 @@ export default function App() {
         onOpenStore={() => setStoreModalOpen(true)}
         onOpenSkipModal={() => setSkipModalOpen(true)}
         onLogout={handleLogout}
+        onLogoutAdmin={handleAdminLogout}
+        isAdminAuthenticated={isAdminAuthenticated}
         onSwitchStudent={handleSwitchStudent}
         allStudents={students}
         onRenewQuota={handleRenewQuota}
@@ -500,8 +527,18 @@ export default function App() {
           />
         )}
 
+        {/* ADMIN ROLE: Login Page if not authenticated */}
+        {role === 'admin' && !isAdminAuthenticated && (
+          <div className="py-8 flex items-center justify-center">
+            <AdminLogin
+              onSuccess={handleAdminLoginSuccess}
+              onSwitchToStudent={() => handleToggleRole('student')}
+            />
+          </div>
+        )}
+
         {/* ADMIN ROLE: Tomorrow's Forecast Dashboard */}
-        {role === 'admin' && activeTab === 'admin' && (
+        {role === 'admin' && isAdminAuthenticated && activeTab === 'admin' && (
           <AdminForecastDashboard
             forecast={tomorrowForecast}
             onAddGuestMeal={handleAddGuestMealToForecast}
@@ -525,8 +562,8 @@ export default function App() {
           />
         )}
 
-        {/* Meal History Log (Accessible by both Student and Admin) */}
-        {activeTab === 'meals' && (
+        {/* Meal History Log (Accessible by Student or Authenticated Admin) */}
+        {activeTab === 'meals' && (role === 'student' || isAdminAuthenticated) && (
           <MealHistoryLog
             meals={meals}
             currentStudent={role === 'student' ? currentStudent : null}
@@ -535,7 +572,7 @@ export default function App() {
         )}
 
         {/* Token Ledger View (Accessible by Student) */}
-        {activeTab === 'ledger' && (
+        {role === 'student' && activeTab === 'ledger' && (
           <TokenLedgerView
             ledger={ledger}
             currentStudent={currentStudent}
@@ -545,9 +582,9 @@ export default function App() {
         )}
 
         {/* Rules & Invariants Console */}
-        {activeTab === 'rules' && currentStudent && (
+        {activeTab === 'rules' && (role === 'student' ? currentStudent : isAdminAuthenticated) && (
           <ProtectionNotice
-            currentStudent={currentStudent}
+            currentStudent={currentStudent || students[0]}
             onSimulateOverdraw={handleSimulateOverdraw}
             onSimulateOverlap={handleSimulateOverlap}
             onSimulateZeroFloor={handleSimulateZeroFloor}
@@ -562,7 +599,9 @@ export default function App() {
         )}
 
         {/* AUTOMATED TEST SUITE (Stage 1 + Stage 2 + Stage 3) */}
-        {activeTab === 'tests' && <CompleteTestSuite onRefresh={refreshState} />}
+        {activeTab === 'tests' && (role === 'student' || isAdminAuthenticated) && (
+          <CompleteTestSuite onRefresh={refreshState} />
+        )}
       </main>
 
       {/* Footer */}
@@ -598,6 +637,7 @@ export default function App() {
           refreshState();
           showToast(`Logged in as ${s.name}`, 'success');
         }}
+        onAdminAuthSuccess={handleAdminLoginSuccess}
       />
 
       <TokenStoreModal

@@ -21,10 +21,12 @@ interface NavbarProps {
   onToggleRole: (role: UserRole) => void;
   activeTab: 'terminal' | 'meals' | 'ledger' | 'rules' | 'admin' | 'tests';
   setActiveTab: (tab: 'terminal' | 'meals' | 'ledger' | 'rules' | 'admin' | 'tests') => void;
-  onOpenAuth: (initialMode?: 'login' | 'register' | 'forgot') => void;
+  onOpenAuth: (initialMode?: 'login' | 'register' | 'forgot' | 'admin') => void;
   onOpenStore: () => void;
   onOpenSkipModal: () => void;
   onLogout: () => void;
+  onLogoutAdmin: () => void;
+  isAdminAuthenticated: boolean;
   onSwitchStudent: (studentId: string) => void;
   allStudents: Student[];
   onRenewQuota: () => void;
@@ -40,6 +42,8 @@ export const Navbar: React.FC<NavbarProps> = ({
   onOpenStore,
   onOpenSkipModal,
   onLogout,
+  onLogoutAdmin,
+  isAdminAuthenticated,
   onSwitchStudent,
   allStudents,
   onRenewQuota,
@@ -185,7 +189,94 @@ export const Navbar: React.FC<NavbarProps> = ({
 
           {/* Zone 3: 1 primary action / Account profile */}
           <div className="flex items-center gap-3 shrink-0">
-            {currentStudent ? (
+            {activeRole === 'admin' ? (
+              isAdminAuthenticated ? (
+                <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-900 border border-slate-800 rounded-xl text-white shadow-2xs">
+                    <ShieldCheck className="w-4 h-4 text-amber-400" />
+                    <span className="font-bold text-xs">Mess Supervisor</span>
+                  </div>
+
+                  {/* Admin Account Menu */}
+                  <div className="relative">
+                    <button
+                      onClick={() => setDropdownOpen(!dropdownOpen)}
+                      className="flex items-center gap-2 p-1.5 rounded-xl hover:bg-slate-100 transition-colors border border-transparent hover:border-slate-200"
+                      aria-label="Admin Account Menu"
+                    >
+                      <div className="w-8 h-8 rounded-full bg-slate-900 text-amber-400 flex items-center justify-center font-bold text-xs uppercase shadow-xs">
+                        A
+                      </div>
+                      <span className="hidden xl:inline text-xs font-semibold text-slate-700">
+                        Admin
+                      </span>
+                    </button>
+
+                    {dropdownOpen && (
+                      <div
+                        className="absolute right-0 mt-2 w-72 bg-white rounded-2xl shadow-xl border border-slate-200 p-2 z-50 animate-in fade-in zoom-in-95 duration-100"
+                        onClick={() => setDropdownOpen(false)}
+                      >
+                        <div className="px-3 py-2 border-b border-slate-100">
+                          <p className="font-bold text-slate-900 text-sm">Mess Administrator</p>
+                          <p className="text-xs text-slate-500 font-mono">admin@mess.edu</p>
+                          <div className="mt-2 text-xs flex items-center justify-between text-slate-700 bg-amber-50 p-2 rounded-xl border border-amber-200">
+                            <span className="font-semibold">Authority Level:</span>
+                            <span className="font-bold text-amber-900">Kitchen &amp; Capacity</span>
+                          </div>
+                        </div>
+
+                        <div className="p-1 space-y-1">
+                          <button
+                            onClick={() => setActiveTab('admin')}
+                            className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-100 rounded-xl transition-colors"
+                          >
+                            <CalendarCheck className="w-4 h-4 text-amber-600" />
+                            <span>Tomorrow Meal Forecast</span>
+                          </button>
+
+                          <button
+                            onClick={() => setActiveTab('meals')}
+                            className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-100 rounded-xl transition-colors"
+                          >
+                            <History className="w-4 h-4 text-slate-600" />
+                            <span>All Dining Transactions</span>
+                          </button>
+
+                          <button
+                            onClick={() => setActiveTab('rules')}
+                            className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-100 rounded-xl transition-colors"
+                          >
+                            <ShieldCheck className="w-4 h-4 text-emerald-600" />
+                            <span>Capacity &amp; Invariants</span>
+                          </button>
+
+                          <div className="border-t border-slate-100 my-1"></div>
+
+                          <button
+                            onClick={onLogoutAdmin}
+                            className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-medium text-rose-600 hover:bg-rose-50 rounded-xl transition-colors"
+                          >
+                            <LogOut className="w-4 h-4" />
+                            <span>Sign Out (Admin)</span>
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ) : (
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => onOpenAuth('admin')}
+                    className="px-3.5 py-2 text-xs font-bold text-white bg-slate-900 hover:bg-slate-800 rounded-xl shadow-xs transition-colors whitespace-nowrap shrink-0 flex items-center gap-1.5"
+                  >
+                    <ShieldCheck className="w-3.5 h-3.5 text-amber-400" />
+                    <span>Admin Login</span>
+                  </button>
+                </div>
+              )
+            ) : currentStudent ? (
               <div className="flex items-center gap-2">
                 {/* Token Balance Pill Button */}
                 <button

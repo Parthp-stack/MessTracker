@@ -1,13 +1,26 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { dbService } from '../services/db';
-import { Student } from '../types';
-import { Lock, Mail, User, Building, AlertCircle, CheckCircle2, KeyRound, Sparkles } from 'lucide-react';
+import { Student, AdminAuthSession } from '../types';
+import {
+  Lock,
+  Mail,
+  User,
+  Building2,
+  ShieldCheck,
+  AlertCircle,
+  CheckCircle2,
+  KeyRound,
+  Sparkles,
+  Eye,
+  EyeOff,
+} from 'lucide-react';
 
 interface AuthModalProps {
   isOpen: boolean;
   onClose: () => void;
-  initialMode?: 'login' | 'register' | 'forgot';
+  initialMode?: 'login' | 'register' | 'forgot' | 'admin';
   onAuthSuccess: (student: Student) => void;
+  onAdminAuthSuccess?: (admin: AdminAuthSession) => void;
 }
 
 export const AuthModal: React.FC<AuthModalProps> = ({
@@ -15,8 +28,15 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   onClose,
   initialMode = 'login',
   onAuthSuccess,
+  onAdminAuthSuccess,
 }) => {
-  const [mode, setMode] = useState<'login' | 'register' | 'forgot'>(initialMode);
+  const [mode, setMode] = useState<'login' | 'register' | 'forgot' | 'admin'>(initialMode);
+
+  useEffect(() => {
+    if (initialMode) {
+      setMode(initialMode);
+    }
+  }, [initialMode, isOpen]);
 
   // Form states
   const [name, setName] = useState('');
@@ -26,6 +46,11 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   const [hostelBlock, setHostelBlock] = useState('Hall of Residence 4');
   const [roomNo, setRoomNo] = useState('304');
   const [dietPreference, setDietPreference] = useState<'Vegetarian' | 'Non-Vegetarian' | 'Halal Special' | 'Jain Dining'>('Vegetarian');
+
+  // Admin form states
+  const [adminUsername, setAdminUsername] = useState('admin');
+  const [adminPassword, setAdminPassword] = useState('admin@123');
+  const [showAdminPassword, setShowAdminPassword] = useState(false);
 
   // Forgot password states
   const [forgotEmail, setForgotEmail] = useState('');
@@ -116,10 +141,35 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     }
   };
 
+  const handleAdminLogin = (e: React.FormEvent) => {
+    e.preventDefault();
+    setErrorMsg(null);
+    setSuccessMsg(null);
+
+    const result = dbService.loginAdmin(adminUsername, adminPassword);
+    if (result.success) {
+      setSuccessMsg(`Welcome back, ${result.admin.name}! Logging in to Admin Console...`);
+      setTimeout(() => {
+        if (onAdminAuthSuccess) {
+          onAdminAuthSuccess(result.admin);
+        }
+        onClose();
+      }, 500);
+    } else {
+      setErrorMsg(result.error);
+    }
+  };
+
   // Demo Quick-Fill helper
   const handleQuickDemo = (demoEmail: string, demoPass: string) => {
     setEmail(demoEmail);
     setPassword(demoPass);
+    setErrorMsg(null);
+  };
+
+  const handleQuickAdminDemo = (demoUser: string, demoPass: string) => {
+    setAdminUsername(demoUser);
+    setAdminPassword(demoPass);
     setErrorMsg(null);
   };
 
@@ -133,11 +183,13 @@ export const AuthModal: React.FC<AuthModalProps> = ({
               {mode === 'login' && 'Student Mess Login'}
               {mode === 'register' && 'Student Registration (+60 TK)'}
               {mode === 'forgot' && 'Password Recovery'}
+              {mode === 'admin' && 'Admin Mess Login'}
             </h2>
             <p className="text-xs text-slate-500 mt-0.5">
               {mode === 'login' && 'Access your meal tokens and dining account.'}
               {mode === 'register' && 'New students receive 60 TK per month fixed quota.'}
               {mode === 'forgot' && 'Recover or reset your mess password using your registered email.'}
+              {mode === 'admin' && 'Access kitchen management, tomorrow’s forecast & meal capacity controls.'}
             </p>
           </div>
           <button
@@ -195,6 +247,22 @@ export const AuthModal: React.FC<AuthModalProps> = ({
             }`}
           >
             Forgot Pass
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setMode('admin');
+              setErrorMsg(null);
+              setSuccessMsg(null);
+            }}
+            className={`flex-1 py-1.5 rounded-lg transition-colors flex items-center justify-center gap-1 ${
+              mode === 'admin'
+                ? 'bg-white text-slate-900 shadow-2xs'
+                : 'text-slate-600 hover:text-slate-900'
+            }`}
+          >
+            <ShieldCheck className="w-3.5 h-3.5 text-amber-600" />
+            <span>Admin Login</span>
           </button>
         </div>
 
@@ -287,6 +355,118 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                   <span className="text-rose-600">Low Balance / Overdraw Test</span>
                 </button>
               </div>
+            </div>
+
+            <div className="pt-2 text-center border-t border-slate-100">
+              <button
+                type="button"
+                onClick={() => setMode('admin')}
+                className="text-[11px] text-slate-500 hover:text-slate-800 font-medium transition-colors"
+              >
+                Mess supervisor or kitchen staff? Switch to{' '}
+                <strong className="text-amber-600 underline">Admin Login</strong>
+              </button>
+            </div>
+          </form>
+        )}
+
+        {/* ADMIN LOGIN FORM */}
+        {mode === 'admin' && (
+          <form onSubmit={handleAdminLogin} className="mt-5 space-y-4">
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 mb-1">
+                Admin Username
+              </label>
+              <div className="relative">
+                <User className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                <input
+                  type="text"
+                  required
+                  value={adminUsername}
+                  onChange={(e) => setAdminUsername(e.target.value)}
+                  placeholder="admin"
+                  className="w-full pl-9 pr-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-amber-500 focus:outline-hidden font-medium"
+                />
+              </div>
+            </div>
+
+            <div>
+              <div className="flex items-center justify-between mb-1">
+                <label className="text-xs font-semibold text-slate-700">Password</label>
+                <button
+                  type="button"
+                  onClick={() => handleQuickAdminDemo('admin', 'admin@123')}
+                  className="text-[11px] font-semibold text-amber-600 hover:underline"
+                >
+                  Use default: admin@123
+                </button>
+              </div>
+              <div className="relative">
+                <Lock className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                <input
+                  type={showAdminPassword ? 'text' : 'password'}
+                  required
+                  value={adminPassword}
+                  onChange={(e) => setAdminPassword(e.target.value)}
+                  placeholder="••••••••"
+                  className="w-full pl-9 pr-9 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-amber-500 focus:outline-hidden font-medium"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowAdminPassword(!showAdminPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-0.5"
+                  aria-label={showAdminPassword ? 'Hide password' : 'Show password'}
+                >
+                  {showAdminPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
+              </div>
+            </div>
+
+            <button
+              type="submit"
+              className="w-full py-2.5 text-xs font-bold text-white bg-amber-600 hover:bg-amber-700 rounded-xl shadow-xs transition-colors flex items-center justify-center gap-1.5"
+            >
+              <Building2 className="w-4 h-4" />
+              <span>Log In to Admin Portal</span>
+            </button>
+
+            {/* Quick Demo Login Preset */}
+            <div className="pt-3 border-t border-slate-100">
+              <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider block mb-2">
+                Default Admin Credentials:
+              </span>
+              <div
+                onClick={() => handleQuickAdminDemo('admin', 'admin@123')}
+                className="p-3 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-xl transition-all cursor-pointer flex items-center justify-between group"
+              >
+                <div>
+                  <span className="font-bold block text-slate-900 text-xs">Mess Administrator</span>
+                  <span className="text-slate-500 text-[11px]">
+                    Username: <strong className="text-slate-800 font-mono">admin</strong> · Password:{' '}
+                    <strong className="text-slate-800 font-mono">admin@123</strong>
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleQuickAdminDemo('admin', 'admin@123');
+                  }}
+                  className="px-2.5 py-1 text-[11px] font-bold bg-amber-600 text-white rounded-lg shadow-2xs group-hover:bg-amber-700 transition-colors shrink-0"
+                >
+                  Autofill
+                </button>
+              </div>
+            </div>
+
+            <div className="pt-2 text-center border-t border-slate-100">
+              <button
+                type="button"
+                onClick={() => setMode('login')}
+                className="text-xs text-slate-500 hover:text-amber-700 font-medium"
+              >
+                ← Back to Student Dining Login
+              </button>
             </div>
           </form>
         )}
